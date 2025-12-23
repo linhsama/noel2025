@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOEL 2025 – Cây Thông Giáng Sinh Tương Tác</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Playfair Display', serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 60px;
+            color: #fceea7;
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 68px;
+            font-weight: 700;
+            letter-spacing: 10px;
+            margin: 0;
+            background: linear-gradient(to bottom, #fff, #eebb66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 70px rgba(252, 238, 167, 0.8);
+        }
+
+        .guide {
+            margin-top: 40px;
+            text-align: center;
+            pointer-events: auto;
+            opacity: 0.9;
+            transition: opacity 0.8s ease;
+        }
+
+        .guide.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .guide-text {
+            color: rgba(212, 175, 55, 0.8);
+            font-size: 14px;
+            letter-spacing: 2px;
+            line-height: 1.8;
+            max-width: 500px;
+        }
+
+        .webcam-btn {
+            margin-top: 20px;
+            background: rgba(20, 20, 20, 0.7);
+            border: 1px solid rgba(212, 175, 55, 0.5);
+            color: #d4af37;
+            padding: 10px 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-size: 11px;
+            backdrop-filter: blur(8px);
+            border-radius: 4px;
+            transition: all 0.4s ease;
+        }
+
+        .webcam-btn:hover {
+            background: #d4af37;
+            color: #000;
+            box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+        }
+
+        .webcam-btn.active {
+            background: #d4af37;
+            color: #000;
+        }
+
+        #loader {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease-out;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(212, 175, 55, 0.2);
+            border-top: 2px solid #d4af37;
+            border-radius: 50%;
+            animation: spin 1.2s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            color: #d4af37;
+            font-size: 16px;
+            letter-spacing: 5px;
+            margin-top: 30px;
+            text-transform: uppercase;
+        }
+
+        #webcam-wrapper {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 180px;
+            height: 135px;
+            border: 2px solid rgba(212, 175, 55, 0.4);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        #webcam-wrapper.visible {
+            opacity: 1;
+        }
+
+        #webcam-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        .status {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #d4af37;
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .status.visible {
+            opacity: 1;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">Preparing Christmas Magic...</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <h1>NOEL 2025</h1>
+
+        <div class="guide" id="guide">
+            <div class="guide-text">
+                Dùng tay để tương tác:<br>
+                ✊ Nắm tay → Gom thành cây thông<br>
+                ✋ Dang tay → Bung các quả cầu<br>
+                👌 Chụm ngón cái + trỏ → Xem chi tiết ảnh<br>
+                <br>
+                Phím <strong>H</strong>: Ẩn/hiện hướng dẫn
+            </div>
+            <div class="webcam-btn" id="webcam-toggle">Bật camera tay</div>
+        </div>
+
+        <div class="status" id="status">Đang chờ cử chỉ tay...</div>
+    </div>
+
+    <div id="webcam-wrapper">
+        <canvas id="webcam-preview"></canvas>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+
+        const CONFIG = {
+            colors: { background: 0x000000, champagneGold: 0xffd966, deepGreen: 0x03180a, accentRed: 0x990000, starGlow: 0xffdd88 },
+            particles: { ornamentCount: 1200, dustCount: 2000, treeHeight: 24, treeRadius: 8 },
+            bloom: { strength: 0.5, radius: 0.5, threshold: 0.65 },
+            rotation: { treeSpeed: 0.3, handSensitivity: 1.0 }
+        };
+
+        const STATE = {
+            mode: 'TREE', // 'TREE' | 'SCATTER' | 'FOCUS'
+            focusTarget: null,
+            hand: { detected: false, x: 0, y: 0 },
+            rotation: { x: 0, y: 0 },
+            webcamEnabled: false
+        };
+
+        let scene, camera, renderer, composer, controls, mainGroup, clock;
+        let particleSystem = [];
+        let photoGroup = new THREE.Group();
+        let handLandmarker = null, videoElement, webcamCanvas, webcamCtx;
+        let candyCaneTexture;
+
+        async function init() {
+            setupThreeJS();
+            setupEnvironmentAndLights();
+            createCandyCaneTexture();
+            createOrnaments();
+            createDustParticles();
+            createStar();
+            setupPostProcessing();
+            setupEventListeners();
+
+            // Tải 2 ảnh cố định
+            loadFixedPhotos();
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = 0;
+            setTimeout(() => loader.remove(), 1000);
+
+            clock = new THREE.Clock();
+            animate();
+        }
+
+        function setupThreeJS() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(CONFIG.colors.background);
+            scene.fog = new THREE.FogExp2(CONFIG.colors.background, 0.012);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 50);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 2.0;
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            mainGroup = new THREE.Group();
+            scene.add(mainGroup);
+            mainGroup.add(photoGroup);
+        }
+
+        function setupEnvironmentAndLights() {
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const innerLight = new THREE.PointLight(0xffaa00, 2.5, 25);
+            innerLight.position.set(0, 6, 0);
+            mainGroup.add(innerLight);
+
+            const spotGold = new THREE.SpotLight(0xffcc66, 1500);
+            spotGold.position.set(30, 45, 40);
+            spotGold.angle = 0.6;
+            spotGold.penumbra = 0.6;
+            scene.add(spotGold);
+        }
+
+        function createCandyCaneTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#aa0000';
+            for (let i = -256; i < 512; i += 64) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0); ctx.lineTo(i + 64, 256); ctx.lineTo(i + 48, 256); ctx.lineTo(i - 16, 0);
+                ctx.closePath(); ctx.fill();
+            }
+            candyCaneTexture = new THREE.CanvasTexture(canvas);
+            candyCaneTexture.wrapS = candyCaneTexture.wrapT = THREE.RepeatWrapping;
+            candyCaneTexture.repeat.set(4, 4);
+        }
+
+        function createOrnaments() {
+            const geometries = { box: new THREE.BoxGeometry(0.55,0.55,0.55), sphere: new THREE.SphereGeometry(0.5,32,16),
+                candy: new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0,-0.5,0),new THREE.Vector3(0,0.3,0),new THREE.Vector3(0.1,0.5,0),new THREE.Vector3(0.3,0.4,0)]),16,0.08,8,false)
+            };
+
+            const materials = {
+                green: new THREE.MeshStandardMaterial({color: CONFIG.colors.deepGreen, metalness:0.2, roughness:0.8, emissive:0x002200, emissiveIntensity:0.3}),
+                gold: new THREE.MeshStandardMaterial({color: CONFIG.colors.champagneGold, metalness:1.0, roughness:0.1, envMapIntensity:2.0}),
+                red: new THREE.MeshPhysicalMaterial({color: CONFIG.colors.accentRed, metalness:0.3, roughness:0.2, clearcoat:1.0}),
+                candy: new THREE.MeshStandardMaterial({map: candyCaneTexture, roughness:0.4})
+            };
+
+            for (let i = 0; i < CONFIG.particles.ornamentCount; i++) {
+                const rand = Math.random();
+                let geo, mat, type;
+                if (rand < 0.4) { geo = geometries.box; mat = materials.green; type = 'BOX_GREEN'; }
+                else if (rand < 0.7) { geo = geometries.box; mat = materials.gold; type = 'BOX_GOLD'; }
+                else if (rand < 0.92) { geo = geometries.sphere; mat = materials.gold; type = 'SPHERE_GOLD'; }
+                else if (rand < 0.97) { geo = geometries.sphere; mat = materials.red; type = 'SPHERE_RED'; }
+                else { geo = geometries.candy; mat = materials.candy; type = 'CANDY_CANE'; }
+
+                const mesh = new THREE.Mesh(geo, mat);
+                const scale = 0.4 + Math.random() * 0.6;
+                mesh.scale.setScalar(scale);
+                mesh.rotation.set(Math.random()*Math.PI*2, Math.random()*Math.PI*2, Math.random()*Math.PI*2);
+                mainGroup.add(mesh);
+                particleSystem.push(new Particle(mesh, type));
+            }
+        }
+
+        function createDustParticles() {
+            const geo = new THREE.TetrahedronGeometry(0.08, 0);
+            const mat = new THREE.MeshBasicMaterial({color: 0xffeebb, transparent: true, opacity: 0.7});
+            for (let i = 0; i < CONFIG.particles.dustCount; i++) {
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.scale.setScalar(0.5 + Math.random() * 0.8);
+                mainGroup.add(mesh);
+                particleSystem.push(new Particle(mesh, 'DUST', true));
+            }
+        }
+
+        function createStar() {
+            const geo = new THREE.OctahedronGeometry(1.4, 0);
+            const mat = new THREE.MeshStandardMaterial({color: CONFIG.colors.starGlow, emissive: 0xffaa00, emissiveIntensity: 1.5, metalness: 1.0, roughness: 0});
+            const star = new THREE.Mesh(geo, mat);
+            star.position.y = CONFIG.particles.treeHeight / 2 + 1.4;
+            mainGroup.add(star);
+            const glow = new THREE.PointLight(0xffee88, 3, 15);
+            glow.position.copy(star.position);
+            mainGroup.add(glow);
+        }
+
+        function setupPostProcessing() {
+            const renderPass = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), CONFIG.bloom.strength, CONFIG.bloom.radius, CONFIG.bloom.threshold);
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderPass);
+            composer.addPass(bloomPass);
+        }
+
+        class Particle {
+            constructor(mesh, type, isDust = false) {
+                this.mesh = mesh; this.type = type; this.isDust = isDust;
+                this.baseScale = mesh.scale.x;
+                this.posTree = new THREE.Vector3(); this.posScatter = new THREE.Vector3();
+                this.spinSpeed = new THREE.Vector3((Math.random()-0.5)*(type==='PHOTO'?0.4:2), (Math.random()-0.5)*(type==='PHOTO'?0.4:2), (Math.random()-0.5)*(type==='PHOTO'?0.4:2));
+                this.calculatePositions();
+            }
+
+            calculatePositions() {
+                const h = CONFIG.particles.treeHeight; const t = Math.pow(Math.random(), 0.8);
+                const y = t * h - h/2;
+                let rMax = CONFIG.particles.treeRadius * (1 - t); if (rMax < 0.5) rMax = 0.5;
+                const angle = t * 40 * Math.PI + Math.random() * Math.PI * 2;
+                const r = rMax * (0.7 + Math.random() * 0.5);
+                this.posTree.set(Math.cos(angle)*r, y, Math.sin(angle)*r);
+
+                const radius = this.isDust ? (15 + Math.random()*25) : (10 + Math.random()*15);
+                const theta = Math.random() * Math.PI * 2; const phi = Math.acos(2*Math.random()-1);
+                this.posScatter.set(radius * Math.sin(phi) * Math.cos(theta), radius * Math.sin(phi) * Math.sin(theta), radius * Math.cos(phi));
+            }
+
+            update(deltaTime, mode, focusMesh) {
+                let targetPos = mode === 'SCATTER' ? this.posScatter : this.posTree;
+                if (mode === 'FOCUS') {
+                    targetPos = (this.mesh === focusMesh)
+                        ? (new THREE.Vector3(0,2,30)).applyMatrix4(new THREE.Matrix4().copy(mainGroup.matrixWorld).invert())
+                        : this.posScatter;
+                }
+                const speed = (mode === 'FOCUS' && this.mesh === focusMesh) ? 6 : 3;
+                this.mesh.position.lerp(targetPos, speed * deltaTime);
+
+                if (mode === 'SCATTER') {
+                    this.mesh.rotation.x += this.spinSpeed.x * deltaTime * 30;
+                    this.mesh.rotation.y += this.spinSpeed.y * deltaTime * 30;
+                    this.mesh.rotation.z += this.spinSpeed.z * deltaTime * 30;
+                } else if (mode === 'TREE') {
+                    this.mesh.rotation.y += 0.5 * deltaTime;
+                }
+
+                if (mode === 'FOCUS' && this.mesh === focusMesh) this.mesh.lookAt(camera.position);
+
+                let targetScale = this.baseScale;
+                if (this.isDust) {
+                    targetScale *= (0.8 + 0.4 * Math.sin(clock.elapsedTime * 4 + this.mesh.id));
+                    if (mode === 'TREE') targetScale = 0;
+                } else if (mode === 'FOCUS') {
+                    targetScale = this.mesh === focusMesh ? 5.5 : this.baseScale * 0.7;
+                } else if (mode === 'SCATTER' && this.type === 'PHOTO') {
+                    targetScale *= 2.8;
+                }
+                this.mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 5 * deltaTime);
+            }
+        }
+
+        function loadFixedPhotos() {
+            const photos = ['1.jpg', '2.jpg'];
+            photos.forEach(src => {
+                new THREE.TextureLoader().load(src, tex => {
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.minFilter = THREE.LinearFilter;
+                    addPhoto(tex);
+                }, undefined, err => console.error('Không tải được ảnh:', src));
+            });
+        }
+
+        function addPhoto(texture) {
+            const group = new THREE.Group();
+
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(1.5,1.5,0.08),
+                new THREE.MeshStandardMaterial({color: CONFIG.colors.champagneGold, metalness:1.0, roughness:0.05, emissive:0x332200, emissiveIntensity:0.3}));
+            group.add(frame);
+
+            const photo = new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.3),
+                new THREE.MeshBasicMaterial({map: texture}));
+            photo.position.z = 0.05;
+            group.add(photo);
+
+            const glow = new THREE.Mesh(new THREE.RingGeometry(0.8,1.0,32),
+                new THREE.MeshBasicMaterial({color:0xffee88, transparent:true, opacity:0, side:THREE.DoubleSide}));
+            glow.rotation.x = -Math.PI/2; glow.position.z = 0.1;
+            group.add(glow);
+            group.userData.glow = glow;
+
+            group.scale.setScalar(0.8);
+            photoGroup.add(group);
+            particleSystem.push(new Particle(group, 'PHOTO'));
+        }
+
+        async function toggleWebcam() {
+            const btn = document.getElementById('webcam-toggle');
+            const wrapper = document.getElementById('webcam-wrapper');
+
+            if (STATE.webcamEnabled) {
+                if (videoElement?.srcObject) videoElement.srcObject.getTracks().forEach(t => t.stop());
+                wrapper.classList.remove('visible');
+                btn.classList.remove('active');
+                btn.textContent = 'Bật camera tay';
+                STATE.webcamEnabled = false;
+                handLandmarker = null;
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                    videoElement = document.createElement('video');
+                    videoElement.srcObject = stream;
+                    videoElement.play();
+
+                    webcamCanvas = document.getElementById('webcam-preview');
+                    webcamCtx = webcamCanvas.getContext('2d');
+
+                    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+                    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                        baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
+                        runningMode: "VIDEO", numHands: 1
+                    });
+
+                    wrapper.classList.add('visible');
+                    btn.classList.add('active');
+                    btn.textContent = 'Tắt camera tay';
+                    STATE.webcamEnabled = true;
+                    startHandPrediction();
+                } catch (err) {
+                    alert('Không thể bật camera. Bạn vẫn có thể kéo chuột để xoay xem.');
+                }
+            }
+        }
+
+        let lastVideoTime = -1;
+        function startHandPrediction() {
+            function predict() {
+                if (!STATE.webcamEnabled) return;
+                if (videoElement.currentTime !== lastVideoTime) {
+                    lastVideoTime = videoElement.currentTime;
+                    const results = handLandmarker.detectForVideo(videoElement, performance.now());
+                    processHandResults(results);
+                    webcamCtx.drawImage(videoElement, 0, 0, 180, 135);
+                }
+                requestAnimationFrame(predict);
+            }
+            predict();
+        }
+
+        function processHandResults(results) {
+            const statusEl = document.getElementById('status');
+            if (results.landmarks?.length > 0) {
+                STATE.hand.detected = true;
+                const lm = results.landmarks[0];
+                STATE.hand.x = (lm[9].x - 0.5) * 2;
+                STATE.hand.y = -(lm[9].y - 0.5) * 2;
+
+                const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
+                const avgTipDist = [lm[8],lm[12],lm[16],lm[20]].reduce((s,t)=>s+Math.hypot(t.x-lm[0].x,t.y-lm[0].y),0)/4;
+
+                if (pinchDist < 0.06 && STATE.mode !== 'FOCUS') {
+                    const photos = particleSystem.filter(p => p.type === 'PHOTO');
+                    if (photos.length > 0) {
+                        STATE.focusTarget = photos[Math.floor(Math.random() * photos.length)].mesh;
+                        STATE.mode = 'FOCUS';
+                        STATE.focusTarget.userData.glow.material.opacity = 0.6;
+                        statusEl.textContent = 'Đang xem ảnh — ESC để thoát';
+                    }
+                } else if (avgTipDist < 0.28) {
+                    STATE.mode = 'TREE'; statusEl.textContent = 'Cây thông Giáng sinh';
+                } else if (avgTipDist > 0.42) {
+                    STATE.mode = 'SCATTER'; statusEl.textContent = 'Bung lấp lánh';
+                } else {
+                    statusEl.textContent = 'Di chuyển tay để xoay';
+                }
+                statusEl.classList.add('visible');
+            } else {
+                STATE.hand.detected = false;
+                statusEl.classList.remove('visible');
+            }
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.getElementById('webcam-toggle').addEventListener('click', toggleWebcam);
+
+            window.addEventListener('keydown', e => {
+                if (e.key.toLowerCase() === 'h') {
+                    document.getElementById('guide').classList.toggle('hidden');
+                }
+                if (e.key === 'Escape' && STATE.mode === 'FOCUS') {
+                    STATE.mode = 'SCATTER';
+                    STATE.focusTarget = null;
+                    document.getElementById('status').classList.remove('visible');
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (STATE.hand.detected && STATE.webcamEnabled) {
+                controls.autoRotate = false;
+                const targetY = STATE.hand.x * Math.PI * CONFIG.rotation.handSensitivity;
+                const targetX = STATE.hand.y * Math.PI * 0.3;
+                STATE.rotation.y += (targetY - STATE.rotation.y) * 4 * delta;
+                STATE.rotation.x += (targetX - STATE.rotation.x) * 4 * delta;
+            } else {
+                controls.autoRotate = true;
+                controls.update();
+            }
+
+            mainGroup.rotation.y = STATE.rotation.y;
+            mainGroup.rotation.x = STATE.rotation.x;
+
+            particleSystem.forEach(p => p.update(delta, STATE.mode, STATE.focusTarget));
+            composer.render();
+        }
+
+        init();
+    </script>
+</body>
+</html>
